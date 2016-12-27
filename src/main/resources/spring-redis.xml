@@ -19,7 +19,8 @@
     <!-- redis连接配置，依次为主机ip，端口，是否使用池，(usePool=true时)redis的池配置 -->
     <bean id="jedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">
         <!--<property name="hostName" value="769da86688504c40.m.cnbja.kvstore.aliyuncs.com"/>-->
-        <property name="hostName" value="101.201.82.247"/>
+        <!--<property name="hostName" value="101.201.82.247"/>  &lt;!&ndash;公网ip&ndash;&gt;-->
+        <property name="hostName" value="10.252.0.171"/>  <!--内网ip-->
         <!--<property name="hostName" value="101.200.206.78"/>-->
         <property name="port" value="6666"/>
         <property name="password" value="xiaolelog"/>

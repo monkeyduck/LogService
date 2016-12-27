@@ -45,16 +45,24 @@ public class ELServer {
         }
     }
 
-    public void doIndex() throws Exception {
-        IndexResponse response = client.prepareIndex("el-2016-12-21", "stat")
-                .setSource(jsonBuilder()
-                        .startObject()
-                        .field("user", "llc")
-                        .field("postDate", new DateTime())
-                        .field("message", "trying out Elasticsearch")
-                        .endObject()
-                )
-                .get();
+    public void doIndex(){
+        String index = "el-2016-12-20";
+        String type = "stat";
+        IndexResponse response = null;
+        try {
+            response = client.prepareIndex("el-2016-12-20", "stat")
+                    .setSource(jsonBuilder()
+                            .startObject()
+                            .field("user", "llc")
+                            .field("postDate", new DateTime())
+                            .field("message", "{\"cmd\":\"\",\"memberId\":\"c6a845ef875144b980cb915c3a0e0a140.8537223\",\"replyModule\":\"combinator\",\"to\":\"user\",\"link\":\"combinator\",\"replyContent\":\"歌谣do re mi\",\"replyType\":\"text\",\"replyConfidence\":1,\"packageId\":1482739135303,\"deviceId\":\"18:97:ff:04:55:c0\"}")
+                            .endObject()
+                    )
+                    .get();
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "caused by: " + response.toString());
+        }
+        logger.info("Index a document successfully, index: " + index + ", type: " + type);
     }
 
     public void doGet() {
@@ -96,12 +104,12 @@ public class ELServer {
             return response.toString();
         } catch (Exception e) {
             logger.error(e.getMessage() + "index: " + "el-" + date);
-            return "No log exists of such date: " + date;
+            return "Index error: No such index: el-" + date;
         }
 
     }
 
-    public String getLogBetweenDate(String date, int range, String memberId, String module, String level) {
+    public String getLogBetweenDate(String date, String edate, int range, String memberId, String module, String level) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         if (!memberId.equals("all")) {
@@ -129,8 +137,61 @@ public class ELServer {
             return response.toString();
         } catch (Exception e) {
             logger.error(e.getMessage() + "indices: " + indices[0] + "...");
-            return "No log exists from " + date;
+            return "Index error: No index from " + date + " to " + edate;
         }
+    }
+
+    public String getLogBetweenTimeStamp(long sts, long ets, String memberId, String module, String level) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+        if (!memberId.equals("all")) {
+            fields.put("memberId", memberId);
+        }
+        if (!module.equals("all")) {
+            fields.put("module", module);
+        }
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        DateTime sdt = new DateTime(sts);
+        DateTime edt = new DateTime(ets);
+        String sdate = sdt.toString("yyyy-MM-dd");
+        String edate = edt.toString("yyyy-MM-dd");
+        if (sdate.equals(edate)) {
+            String index = "el-" + sdate;
+            try {
+                SearchResponse response = client.prepareSearch(index)
+                        .setTypes("stat")
+                        .setQuery(boolQuery)
+                        .setPostFilter(QueryBuilders.rangeQuery("timeStamp").from(sts).to(ets))
+                        .get();
+                return response.toString();
+            } catch (Exception e) {
+                logger.error(e.getMessage() + "index: " + index + "...");
+                return "Index error: No such index: el-" + sdate;
+            }
+        } else {    // 时间戳落在两天
+            String[] indices = new String[2];
+            indices[0] = "<el-{" + sdate + "{yyyy-MM-dd}}>";
+            indices[1] = "<el-{" + sdate + "||+" + 1 + "d{yyyy-MM-dd}}>";
+            try {
+                SearchResponse response = client.prepareSearch(indices)
+                        .setTypes("stat")
+                        .setQuery(boolQuery)
+                        .setPostFilter(QueryBuilders.rangeQuery("timeStamp").from(sts).to(ets))
+                        .get();
+                return response.toString();
+            } catch (Exception e) {
+                logger.error(e.getMessage() + "indices: " + indices[0] + "...");
+                return "Index error: No index exists from el-" + sdate + " to el-" + edate;
+            }
+        }
+
+
+
     }
 
     public String getLogByDateFromELSearchSimple(String date) {
@@ -166,13 +227,8 @@ public class ELServer {
     }
 
     public static void main(String[] args) {
-        List<Integer> list = new ArrayList<>();
-        list.add(0);
-        list.add(1);
-        list.add(2);
-        List<Integer> nlist = new ArrayList<>();
-        nlist.addAll(list.subList(1,1));
-        nlist.forEach(i -> System.out.println(i));
+        ELServer server = new ELServer();
+        server.doIndex();
     }
 
 }
