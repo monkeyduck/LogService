@@ -119,59 +119,5 @@ public class Controller {
         return elServer.getLogByDateFromELSearch(date, memberId, module, level);
     }
 
-//    @RequestMapping("/getLogBetweenTimeStamp")
-//    public JSONArray getLogBetweenTimeStamp(@RequestParam("startTimeStamp") String startTimeStamp,
-//                                            @RequestParam("endTimeStamp") String endTimeStamp,
-//                                            @RequestParam(value = "memberId", defaultValue = "all") String memberId,
-//                                            @RequestParam(value = "module", defaultValue = "all") String module) {
-//        List<String> logList = new ArrayList<>();
-//        try {
-//            long sTS = Long.parseLong(startTimeStamp);
-//            long eTS = Long.parseLong(endTimeStamp);
-//            DateTime dt = new DateTime(sTS);
-//            DateTime edt = new DateTime(eTS);
-//            logger.info(dt.toString("yyyy-MM-dd HH:mm:ss.SSS"));
-//            logger.info(edt.toString("yyyy-MM-dd HH:mm:ss.SSS"));
-//            List<String> firstMinute = redis.strLget("stats-" + dt.toString("yyyy-MM-dd.HH:mm"));
-//            int sindex = 0;
-//            JSONObject json;
-//            LogFilter logFilter = new LogFilter(memberId, module);
-//            if (logFilter.isHasFilter()){
-//                for (String slog : firstMinute) {
-//                    if (logFilter.filter(slog) && logChecker.check(slog)) {
-//                        logList.add(slog);
-//                    }
-//                }
-//
-//            } else {
-//                for (String slog : firstMinute) {
-//                    json = JSONObject.fromObject(slog);
-//                    long ts = Long.parseLong(json.getString("timeStamp"));
-//                    if (ts >= sTS && ts <= eTS) {
-//                        logList.add(slog);
-//                    }
-//                }
-//            }
-//
-//            dt = dt.plusMinutes(1);
-//            for (; dt.getMinuteOfDay() < edt.getMinuteOfDay(); dt = dt.plusMinutes(1)) {
-//                logList.addAll(redis.strLget("stats-" + dt.toString("yyyy-MM-dd.HH:mm")));
-//            }
-//            if (dt.getMinuteOfDay() == edt.getMinuteOfDay()) {
-//                List<String> lastMinute = redis.strLget("stats-" + edt.toString("yyyy-MM-dd.HH:mm"));
-//                for (String slog : lastMinute) {
-//                    json = JSONObject.fromObject(slog);
-//                    long ts = Long.parseLong(json.getString("timeStamp"));
-//                    if (ts <= eTS && ts >= sTS) {
-//                        logList.add(slog);
-//                    }
-//                }
-//            }
-//
-//        } catch (Exception e) {
-//            logger.error(e.getMessage());
-//        }
-//        return JSONArray.fromObject(logList);
-//    }
 
 }
