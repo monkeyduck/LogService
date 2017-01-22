@@ -22,6 +22,7 @@ import java.util.List;
  */
 
 @RestController
+@RequestMapping("/log")
 public class Controller {
 
     private static final Logger logger = Logger.getLogger(Controller.class);
@@ -35,7 +36,7 @@ public class Controller {
     @Autowired
     private ELServer elServer;
 
-    @RequestMapping("/getLatestLog")
+    @RequestMapping("/search/latest")
     public JSONArray getLatestLog(@RequestParam("minute") int minute) {
         List<String> ret = new ArrayList<String>();
         DateTime dateTime = new DateTime();
@@ -49,7 +50,7 @@ public class Controller {
     }
 
 
-    @RequestMapping("/getLogBetweenTimeStamp")
+    @RequestMapping("/search/between-time-stamp")
     public String getLogBetweenTimeStampEl(@RequestParam("startTimeStamp") String startTimeStamp,
                                             @RequestParam("endTimeStamp") String endTimeStamp,
                                             @RequestParam(value = "memberId", defaultValue = "all") String memberId,
@@ -73,7 +74,7 @@ public class Controller {
             return elServer.getLogBetweenTimeStamp(sts, ets, memberId, module, level);
     }
 
-    @RequestMapping("/downloadLogByDate")
+    @RequestMapping("/download/date")
     public void downloadLogByDate(HttpServletResponse response,
                                   @RequestParam("date") String date,
                                   @RequestParam(value = "memberId", defaultValue = "all") String memberId,
@@ -92,7 +93,7 @@ public class Controller {
         }
     }
 
-    @RequestMapping("/getLogBetweenDate")
+    @RequestMapping("/search/between-date")
     public String getLogBetweenDate(@RequestParam("startDate") String sdate,
                                   @RequestParam("endDate") String edate,
                                   @RequestParam(value = "memberId", defaultValue = "all") String memberId,
@@ -111,7 +112,7 @@ public class Controller {
     }
 
 
-    @RequestMapping("/getLogByDate")
+    @RequestMapping("/search/date")
     public String getLogByDate(@RequestParam("date") String date,
                                @RequestParam(value = "memberId", defaultValue = "all") String memberId,
                                @RequestParam(value = "module", defaultValue = "all") String module,
