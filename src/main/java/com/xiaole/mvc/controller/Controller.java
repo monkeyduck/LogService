@@ -50,7 +50,7 @@ public class Controller {
     }
 
 
-    @RequestMapping("/search/between-time-stamp")
+    @RequestMapping("/search/between-timestamp")
     public String getLogBetweenTimeStampEl(@RequestParam("startTimeStamp") String startTimeStamp,
                                             @RequestParam("endTimeStamp") String endTimeStamp,
                                             @RequestParam(value = "memberId", defaultValue = "all") String memberId,
