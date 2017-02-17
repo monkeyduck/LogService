@@ -85,9 +85,12 @@ public class Controller {
                 shortId = memberId.split("\\.")[1];
             }
             String saveName = date + "_" + module + "_" + shortId + ".log";
-            List<String> logList = hdfsManager.getLogByDate(date, module, memberId);
-            hdfsManager.downloadLogByList(logList, saveName, response);
-//            hdfsManager.downloadLogByDate(fileName, saveName, response);
+            if (memberId.equals("all") && module.equals("all")) {
+                hdfsManager.downloadLog(date, module, memberId, saveName, response);
+            } else {
+                List<String> logList = hdfsManager.getLogByDate(date, module, memberId);
+                hdfsManager.downloadLogByList(logList, saveName, response);
+            }
         } catch (IOException e){
             logger.error("error when downloading log: " + date + "! Caused by: " + e.getMessage());
         }

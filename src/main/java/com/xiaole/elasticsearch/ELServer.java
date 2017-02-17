@@ -28,7 +28,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
  */
 public class ELServer {
     private static final Logger logger = LoggerFactory.getLogger(ELServer.class);
-    private static final String serverIp = "10.252.0.171";
+    private static final String serverIp = "10.252.0.171";      // 内网ip
 //    private static final String serverIp = "101.201.103.114";
     private static final String serverPort = "9300";
     private static TransportClient client;

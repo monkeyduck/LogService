@@ -2,18 +2,18 @@ package com.xiaole.hdfs;
 
 import com.xiaole.mvc.model.LogChecker;
 import com.xiaole.mvc.model.LogFilter;
+import com.xiaole.utils.DownloadFileUtil;
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.io.IOUtils;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.log4j.Logger;
-import com.xiaole.utils.DownloadFileUtil;
 
 import javax.servlet.http.HttpServletResponse;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.net.URLEncoder;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
@@ -227,6 +227,15 @@ public class HDFSManager {
         FileUtils.writeLines(tmpFile, logList);
         DownloadFileUtil.pushFile(saveName, path, response);
         FileUtils.forceDelete(tmpFile);
+    }
+
+    public void downloadLog(String date, String module, String memberId, String saveName,
+                            HttpServletResponse response) throws IOException {
+        String fileName = "/data/logstash/stats/" + date + ".log";
+        FSDataInputStream in = hdfs.open(new Path(fileName));
+        response.setHeader("content-disposition", "attachment;filename=" + URLEncoder.encode(saveName, "UTF-8"));
+        OutputStream out = response.getOutputStream();
+        IOUtils.copyBytes(in, out, 4096, true);
     }
 
 }
