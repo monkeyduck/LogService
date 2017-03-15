@@ -1,9 +1,11 @@
 package com.xiaole.hdfs;
 
-import com.xiaole.mvc.model.LogChecker;
 import com.xiaole.mvc.model.LogFilter;
-import com.xiaole.utils.DownloadFileUtil;
-import org.apache.commons.io.FileUtils;
+import com.xiaole.mvc.model.NormalLog;
+import com.xiaole.mvc.model.checker.InvalidLogChecker;
+import com.xiaole.mvc.model.checker.SimpleLogChecker;
+import com.xiaole.mvc.model.comparator.LogComparator;
+import com.xiaole.mvc.model.comparator.MyComparator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.FileSystem;
@@ -15,8 +17,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
 import java.security.PrivilegedExceptionAction;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by llc on 16/11/16.
@@ -27,15 +28,12 @@ public class HDFSManager {
     // initialization
     static Configuration conf = new Configuration();
     static FileSystem hdfs;
-//     private static final String logAddress = "101.201.82.247"; // 公网ip
+//     private static final String logAddress = "101.201.103.114"; // 公网ip
     private static final String logAddress = "10.252.0.171";    // 内网ip
 
     private static final String hadoopUser = "hadoop";
 
     private static final String hdfsAddress = "hdfs://" + logAddress + ":19000/";
-
-    // 日志检查器
-    private static LogChecker logChecker = new LogChecker();
 
     static {
         UserGroupInformation ugi = UserGroupInformation
@@ -166,76 +164,195 @@ public class HDFSManager {
     }
 
     // readLines method given a file
-    public List<String> readLines(String fileName, String module, String memberId) throws IOException{
+    public List<String> readLines(String fileName, String module, String memberId, String env, String level) throws IOException{
         FSDataInputStream inStream = hdfs.open(new Path(fileName));
         BufferedReader bReader = new BufferedReader(new InputStreamReader(inStream));
         String line = "";
 
-        LogFilter logFilter = new LogFilter(memberId, module);
+        LogFilter logFilter = new LogFilter(memberId, module, env, level);
         List<String> logList = new ArrayList<String>();
 
         if (logFilter.isHasFilter()){
             while ((line = bReader.readLine()) != null){
-                if (logFilter.filter(line) && logChecker.check(line)) {
+                if (logFilter.filter(line) && InvalidLogChecker.check(line)) {
                     logList.add(line);
                 }
             }
         }
         else{
             while ((line = bReader.readLine()) != null){
-                if (logChecker.check(line))
+                if (InvalidLogChecker.check(line))
                     logList.add(line);
             }
         }
         return logList;
     }
 
-    public List<String> getLogByDate(String date, String module, String memberId){
+    // Read simple lines from given file
+    public List<String> readSimpleLines(String fileName, String module, String memberId, String env, String level)
+            throws IOException{
+        FSDataInputStream inStream = hdfs.open(new Path(fileName));
+        BufferedReader bReader = new BufferedReader(new InputStreamReader(inStream));
+        String line = "";
+
+        LogFilter logFilter = new LogFilter(memberId, module, env, level);
+        List<String> logList = new ArrayList<String>();
+        int queueSize = 100;
+        Queue<NormalLog> pq = new PriorityQueue<>(queueSize, new LogComparator());
+        NormalLog log;
+
+        if (logFilter.isHasFilter()){
+            while ((line = bReader.readLine()) != null){
+                try {
+                    log = new NormalLog(line);
+                }catch (Exception e){
+                    logger.error("Parse log error: " + e.getMessage() + "log:" + line);
+                    continue;
+                }
+                if (logFilter.filter(log) && SimpleLogChecker.check(line)) {
+                    pq.add(log);
+                    if (pq.size() == queueSize) {
+                        logList.add(pq.poll().toReadableSimpleLog());
+                    }
+                }
+            }
+        }
+        else{
+            while ((line = bReader.readLine()) != null){
+                if (SimpleLogChecker.check(line)) {
+                    try {
+                        log = new NormalLog(line);
+                    }catch (Exception e){
+                        logger.error("Parse log error: " + e.getMessage() + "log:" + line);
+                        continue;
+                    }
+                    pq.add(log);
+                    if (pq.size() == queueSize) {
+                        logList.add(pq.poll().toReadableSimpleLog());
+                    }
+                }
+            }
+        }
+        // 将队列中剩余的日志按顺序加入logList
+        for (NormalLog leftLog : pq) {
+            logList.add(leftLog.toReadableSimpleLog());
+        }
+        return logList;
+    }
+
+    // read all users simple logs from given file
+    public Map<String, List<String> > readAllUserSimpleLines(String fileName, String module, String env, String level)
+            throws IOException {
+        FSDataInputStream inStream = hdfs.open(new Path(fileName));
+        BufferedReader bReader = new BufferedReader(new InputStreamReader(inStream));
+        String line = "";
+        LogFilter logFilter = new LogFilter("all", module, env, level);
+        int queueSize = 100;
+        Queue<NormalLog> pq = new PriorityQueue<>(queueSize, new LogComparator());
+        NormalLog log;
+        Map<String, List<String> > map = new HashMap<>();
+        if (logFilter.isHasFilter()){
+            while ((line = bReader.readLine()) != null){
+                try {
+                    log = new NormalLog(line);
+                }catch (Exception e){
+                    logger.error("Parse log error: " + e.getMessage() + "log:" + line);
+                    continue;
+                }
+                if (logFilter.filter(log) && SimpleLogChecker.check(line)) {
+                    pq.add(log);
+                    if (pq.size() == queueSize) {
+                        NormalLog topLog = pq.poll();
+                        if (!map.containsKey(topLog.getMember_id())) {
+                            map.put(topLog.getMember_id(), new ArrayList<>());
+                        }
+                        map.get(topLog.getMember_id()).add(topLog.toReadableSimpleLog());
+                    }
+                }
+            }
+        }
+        else{
+            while ((line = bReader.readLine()) != null){
+                if (SimpleLogChecker.check(line)) {
+                    try {
+                        log = new NormalLog(line);
+                    }catch (Exception e){
+                        logger.error("Parse log error: " + e.getMessage() + "log:" + line);
+                        continue;
+                    }
+                    pq.add(log);
+                    if (pq.size() == queueSize) {
+                        NormalLog topLog = pq.poll();
+                        if (!map.containsKey(topLog.getMember_id())) {
+                            map.put(topLog.getMember_id(), new ArrayList<>());
+                        }
+                        map.get(topLog.getMember_id()).add(topLog.toReadableSimpleLog());
+                    }
+                }
+            }
+        }
+        // 将队列中剩余的日志按顺序加入logList
+        for (NormalLog leftLog : pq) {
+            if (!map.containsKey(leftLog.getMember_id())) {
+                map.put(leftLog.getMember_id(), new ArrayList<>());
+            }
+            map.get(leftLog.getMember_id()).add(leftLog.toReadableSimpleLog());
+        }
+        return map;
+    }
+
+    public List<String> getLogByDate(String date, String module, String memberId, String env, String level){
         String fileName = "/data/logstash/stats/" + date + ".log";
         List<String> logList = new ArrayList<String>();
         try {
-            logList = readLines(fileName, module, memberId);
+            logList = readLines(fileName, module, memberId, env, level);
         } catch (Exception e) {
             logger.error("error occurs: " + e.getMessage());
         }
         return logList;
     }
 
-    public static void main(String[] args) throws IOException {
-        HDFSManager ofs = new HDFSManager();
-        ofs.readFile("/data/txt.log");
-        System.out.println("\n=======create dir=======");
-        String dir = "/test12";
-        ofs.createDir(dir);
-        System.out.println("\n=======copy file=======");
-        String src = "/Users/linchuan/llc.txt";
-        ofs.copyFile(src, dir);
-        System.out.println("\n=======create a file=======");
-        String fileContent = "Hello, world! Just a test.";
-        ofs.appendFile(dir+"/word.txt", fileContent);
+    public List<String> getSimpleLogByDate(String date, String module, String memberId, String env, String level){
+        String fileName = "/data/logstash/stats/" + date + ".log";
+        List<String> logList = new ArrayList<String>();
+        try {
+            logList = readSimpleLines(fileName, module, memberId, env, level);
+        } catch (Exception e) {
+            logger.error("error occurs: " + e.getMessage());
+        }
+        return logList;
     }
 
-    public void downloadLogByDate(String fileName, String saveName, HttpServletResponse response) throws IOException{
-//        String fileName = "/input/core-site.xml";
-        FSDataInputStream inStream = hdfs.open(new Path(fileName));
-        DownloadFileUtil.pushLinesFile(saveName, inStream, response);
+    public Map<String, List<String> > getAllUserSimpleLog(String date, String module, String env, String level) {
+        String fileName = "/data/logstash/stats/" + date + ".log";
+        Map<String, List<String> > map = new HashMap<>();
+        try {
+            map = readAllUserSimpleLines(fileName, module, env, level);
+        } catch (Exception e) {
+            logger.error("error occurs: " + e.getMessage());
+        }
+        return map;
     }
 
-    public void downloadLogByList(List<String> logList, String saveName, HttpServletResponse response) throws IOException{
-        String path = "/root/log4j/hxx/logService/download/" + saveName + ".log";
-        File tmpFile = new File(path);
-        FileUtils.writeLines(tmpFile, logList);
-        DownloadFileUtil.pushFile(saveName, path, response);
-        FileUtils.forceDelete(tmpFile);
-    }
-
-    public void downloadLog(String date, String module, String memberId, String saveName,
-                            HttpServletResponse response) throws IOException {
+    public void downloadLog(String date, String saveName, HttpServletResponse response) throws IOException {
         String fileName = "/data/logstash/stats/" + date + ".log";
         FSDataInputStream in = hdfs.open(new Path(fileName));
         response.setHeader("content-disposition", "attachment;filename=" + URLEncoder.encode(saveName, "UTF-8"));
         OutputStream out = response.getOutputStream();
         IOUtils.copyBytes(in, out, 4096, true);
+    }
+
+    public static void main(String[] args) {
+        Queue<Integer> pq = new java.util.PriorityQueue<>(4, new MyComparator());
+//        pq.add(3);
+//        pq.add(6);
+//        pq.add(1);
+//        pq.add(0);
+//        pq.add(5);
+//        for (int i : pq) {
+//            System.out.println(i);
+//        }
+        System.out.println("123".compareTo("124"));
     }
 
 }

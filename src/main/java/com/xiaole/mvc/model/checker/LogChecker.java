@@ -1,4 +1,4 @@
-package com.xiaole.mvc.model;
+package com.xiaole.mvc.model.checker;
 
 /**
  * Created by llc on 16/12/10.

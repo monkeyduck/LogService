@@ -1,5 +1,7 @@
 package com.xiaole.elasticsearch;
 
+import com.xiaole.mvc.model.NormalLog;
+import com.xiaole.mvc.model.checker.SimpleLogChecker;
 import net.sf.json.JSONArray;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
@@ -7,13 +9,15 @@ import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.sort.FieldSortBuilder;
+import org.elasticsearch.search.sort.SortBuilders;
+import org.elasticsearch.search.sort.SortOrder;
 import org.elasticsearch.transport.client.PreBuiltTransportClient;
 import org.joda.time.DateTime;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -27,10 +31,9 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
  * Created by llc on 16/12/19.
  */
 public class ELServer {
-    private static final Logger logger = LoggerFactory.getLogger(ELServer.class);
+    private static final org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(ELServer.class);
     private static final String serverIp = "10.252.0.171";      // 内网ip
 //    private static final String serverIp = "101.201.103.114";
-    private static final String serverPort = "9300";
     private static TransportClient client;
 
     static {
@@ -81,7 +84,7 @@ public class ELServer {
         logger.info("Response: " + response.toString());
     }
 
-    public String getLogByDateFromELSearch(String date, String memberId, String module, String level) {
+    public List<String> getComplexLogByDate(String memberId, String date, String module, String level, String env) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         if (!memberId.equals("all")) {
@@ -91,7 +94,57 @@ public class ELServer {
             fields.put("module", module);
         }
         if (!level.equals("all")) {
-            fields.put("level", level.toUpperCase());
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        List<String> logList = new ArrayList<>();
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .setQuery(boolQuery)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        logList.add(sourceAsString);
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0);
+
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+        }
+        return logList;
+    }
+
+    public String getLogByDateFromELSearch(String date, String memberId, String module, String level, String env) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+        if (!memberId.equals("all")) {
+            fields.put("memberId", memberId);
+        }
+        if (!module.equals("all")) {
+            fields.put("module", module);
+        }
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
         }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
@@ -109,7 +162,8 @@ public class ELServer {
 
     }
 
-    public String getLogBetweenDate(String date, String edate, int range, String memberId, String module, String level) {
+    public String getLogBetweenDate(String date, String edate, int range, String memberId, String module, String level,
+                                    String env) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         if (!memberId.equals("all")) {
@@ -120,6 +174,9 @@ public class ELServer {
         }
         if (!level.equals("all")) {
             fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
         }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
@@ -141,7 +198,7 @@ public class ELServer {
         }
     }
 
-    public String getLogBetweenTimeStamp(long sts, long ets, String memberId, String module, String level) {
+    public String getLogBetweenTimeStamp(long sts, long ets, String memberId, String module, String level, String env) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         if (!memberId.equals("all")) {
@@ -152,6 +209,9 @@ public class ELServer {
         }
         if (!level.equals("all")) {
             fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
         }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
@@ -189,26 +249,269 @@ public class ELServer {
                 return "Index error: No index exists from el-" + sdate + " to el-" + edate;
             }
         }
-
-
-
     }
 
-    public String getLogByDateFromELSearchSimple(String date) {
+    public JSONArray getChatLogByNumber(int count, String date, String memberId, String level) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
+        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+        boolQuery.must(clauseQuery);
+        fields.put("module", "cockroach");
+        if (!memberId.equals("all")) {
+            fields.put("memberId", memberId);
+        }
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
         }
-        SearchResponse response = client.prepareSearch("el-" + date)
-                .setTypes("stat")
-                .setQuery(boolQuery)
-                .get();
-        return response.toString();
+        try {
+            FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+                    .order(SortOrder.DESC);
+
+            SearchResponse response = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .setQuery(boolQuery)
+                    .addSort(sortBuilder)
+                    .setSize(count)
+                    .get();
+            return convert2JsonArray(response);
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+            return null;
+        }
+    }
+
+    public JSONArray getChatLogByTimeStamp(long startTimeStamp, long endTimeStamp, String memberId, String level) {
+        DateTime sdt = new DateTime(startTimeStamp);
+        DateTime edt = new DateTime(endTimeStamp);
+        String date = sdt.toString("yyyy-MM-dd");
+        if (!edt.toString("yyyy-MM-dd").equals(date)) {
+            logger.error("时间戳不在同一天");
+            List<String> errMsg = new ArrayList<>();
+            errMsg.add("时间戳不在同一天");
+            return JSONArray.fromObject(errMsg);
+        } else {
+            BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+            Map<String, String> fields = new HashMap<>();
+            BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+            clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+            clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+            boolQuery.must(clauseQuery);
+            fields.put("module", "cockroach");
+            if (!memberId.equals("all")) {
+                fields.put("memberId", memberId);
+            }
+            if (!level.equals("all")) {
+                fields.put("level", level);
+            }
+            for (Map.Entry<String, String> entry : fields.entrySet()){
+                boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+            }
+            try {
+                SearchResponse response = client.prepareSearch("el-" + date)
+                        .addSort("timeStamp", SortOrder.ASC)
+                        .setTypes("stat")
+                        .setQuery(boolQuery)
+                        .setPostFilter(QueryBuilders.rangeQuery("timeStamp").from(startTimeStamp).to(endTimeStamp))
+                        .get();
+                return convert2JsonArray(response);
+            } catch (Exception e) {
+                logger.error(e.getMessage() + "index: " + "el-" + date);
+                return null;
+            }
+        }
+    }
+
+    public JSONArray getRealTimeLogByDateFromELSearch(String date, String memberId, String module, String level, String env) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+        fields.put("memberId", memberId);
+//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+//        boolQuery.must(clauseQuery);
+//        fields.put("module", "cockroach");
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+        if (!module.equals("all")) {
+            fields.put("module", module);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+                .order(SortOrder.ASC);
+        List<String> ret = new ArrayList<>();
+        NormalLog log;
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .addSort(sortBuilder)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        if (SimpleLogChecker.check(sourceAsString)) {
+                            try{
+                                log = new NormalLog(sourceAsString);
+                            }catch (Exception e) {
+                                logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
+                                continue;
+                            }
+                            ret.add(log.toNewSimpleFormat());
+                        }
+
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
+        } catch (Exception e) {
+            logger.error(e.getMessage() + ". No index exists: " + "el-" + date);
+            List<String> list = new ArrayList<>();
+            list.add("查询数据不存在");
+            return JSONArray.fromObject(list);
+        }
+        return JSONArray.fromObject(ret);
+    }
+
+    public List<String> getSimpleLogByDate(String date, String memberId, String env, String level){
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+//        boolQuery.must(clauseQuery);
+//        fields.put("module", "cockroach");
+        fields.put("memberId", memberId);
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+                .order(SortOrder.ASC);
+        NormalLog log;
+        List<String> resultList = new ArrayList<>();
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .addSort(sortBuilder)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        if (SimpleLogChecker.check(sourceAsString)) {
+                            try{
+                                log = new NormalLog(sourceAsString);
+                            }catch (Exception e) {
+                                logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
+                                continue;
+                            }
+                            resultList.add(log.toNewSimpleFormat());
+                        }
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+            return null;
+        }
+        return resultList;
+    }
+
+    public Map<String, List<String>> getAllUserSimpleLog(String date, String env, String level) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+//        boolQuery.must(clauseQuery);
+//        fields.put("module", "cockroach");
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+                .order(SortOrder.ASC);
+        NormalLog log;
+        Map<String, List<String>> resultMap = new HashMap<>();
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .addSort(sortBuilder)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        if (SimpleLogChecker.check(sourceAsString)) {
+                            try{
+                                log = new NormalLog(sourceAsString);
+                            }catch (Exception e) {
+                                logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
+                                continue;
+                            }
+                            if (!resultMap.containsKey(log.getMember_id())) {
+                                resultMap.put(log.getMember_id(), new ArrayList<>());
+                            }
+                            resultMap.get(log.getMember_id()).add(log.toNewSimpleFormat());
+                        }
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+            return null;
+        }
+        return resultMap;
     }
 
 
     private JSONArray convert2JsonArray(SearchResponse response) {
+        logger.info("Start to convert response to json ...");
+        if (response == null) logger.info("response is null.");
         List<String> list = new ArrayList<>();
         try {
             SearchHit[] results = response.getHits().getHits();
