@@ -1,10 +1,14 @@
 package com.xiaole.mvc.model;
 
 import com.xiaole.mvc.model.checker.SdkLogChecker;
+import com.xiaole.utils.LogTest;
 import net.sf.json.JSONObject;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -269,19 +273,21 @@ public class NormalLog {
         return modtrans.contains("->");
     }
 
-    public String toNewSimpleFormat() {
+    public List<String> toNewSimpleFormat() {
         if (SdkLogChecker.check(this)) {
-            String ret = "";
-            if (jsonContent.containsKey("from") && jsonContent.containsKey("to")) {
-                ret = time + " " + level + " " + jsonContent.getJSONObject("from").getString("name") + "->"
-                        + jsonContent.getJSONObject("to").getString("name") + " " + parseContent() + " "
-                        + member_id;
+            List<String> ret = new ArrayList<>();
+            List<String> contents = LogTest.showLogs(content);
+            for (String con : contents) {
+                ret.add(time + " " + level + " " + con + " " + member_id);
             }
             return ret;
         } else {
-            return toReadableSimpleLog();
+            List<String> xiaoleList = new ArrayList<>();
+            if (toReadableSimpleLog() != null) {
+                xiaoleList.add(toReadableSimpleLog());
+            }
+            return xiaoleList;
         }
-
     }
 
     public String parseContent() {
@@ -304,19 +310,21 @@ public class NormalLog {
                 "    \"packageMeta\": {\n" +
                 "        \"extraMap\": {\n" +
                 "            \"secretKey\": \"0wQaZgvsv/P5DtVZxKUBunavEBC5oezxehqCr66MYwM=\",\n" +
-                "            \"reply_id\": \"19fc3ad9\",\n" +
+                "            \"reply_id\": \"79553744\",\n" +
                 "            \"signature\": \"AD:D6:53:36:81:2B:3C:DC:29:22:AF:BE:9C:47:E4:74:EC:22:14:A7\",\n" +
+                "            \"sub_module_name\": \"protoss\",\n" +
+                "            \"confidence\": \"0\",\n" +
                 "            \"packageName\": \"com.aibasis.sdkdemo\"\n" +
                 "        },\n" +
                 "        \"clientType\": \"robot\",\n" +
-                "        \"clientId\": \"GID_XIAOLE_A@@@0c:1d:af:df:1c:35\",\n" +
-                "        \"deviceId\": \"0c:1d:af:df:1c:35\",\n" +
+                "        \"clientId\": \"GID_XIAOLE_A@@@9c:99:a0:2c:9b:bb\",\n" +
+                "        \"deviceId\": \"9c:99:a0:2c:9b:bb\",\n" +
                 "        \"protocolVersion\": \"v1.0\",\n" +
-                "        \"packageUUID\": \"92973b4a-dd38-48b0-b842-3d6c08b55bf0\",\n" +
+                "        \"packageUUID\": \"c8cd7107-8ac5-481b-a9d2-221ee7474def\",\n" +
                 "        \"priority\": 1,\n" +
-                "        \"createdTimestamp\": 1489544866618,\n" +
+                "        \"createdTimestamp\": 1490336825220,\n" +
                 "        \"packageType\": \"common\",\n" +
-                "        \"userId\": \"M0aeqao7Qd+zKnigGbKmzA==\"\n" +
+                "        \"userId\": \"qgzWvwbZQxq2dUrLdytqEw==\"\n" +
                 "    },\n" +
                 "    \"from\": {\n" +
                 "        \"name\": \"dialog_ctr\"\n" +
@@ -328,9 +336,45 @@ public class NormalLog {
                 "        {\n" +
                 "            \"map\": {\n" +
                 "                \"msg_content\": {\n" +
-                "                    \"content\": \"我会画飞机，你会画飞机吗？\"\n" +
+                "                    \"type\": \"clear\"\n" +
                 "                },\n" +
-                "                \"msg_type\": \"play_tts\"\n" +
+                "                \"confidence\": \"0.792\",\n" +
+                "                \"msg_type\": \"play_img\",\n" +
+                "                \"reply_sub_module\": \"dialogtree\",\n" +
+                "                \"action_after_execution\": \"no_listen\"\n" +
+                "            }\n" +
+                "        },\n" +
+                "        {\n" +
+                "            \"map\": {\n" +
+                "                \"msg_content\": {\n" +
+                "                    \"content\": \"听说睡觉会长高呢，我可要好好睡觉呢。\",\n" +
+                "                    \"face\": \"grimace\"\n" +
+                "                },\n" +
+                "                \"confidence\": \"0.792\",\n" +
+                "                \"msg_type\": \"play_tts\",\n" +
+                "                \"reply_sub_module\": \"dialogtree\",\n" +
+                "                \"action_after_execution\": \"no_listen\"\n" +
+                "            }\n" +
+                "        },\n" +
+                "        {\n" +
+                "            \"map\": {\n" +
+                "                \"msg_content\": {\n" +
+                "                    \"content\": \"小朋友\"\n" +
+                "                },\n" +
+                "                \"confidence\": \"0.792\",\n" +
+                "                \"msg_type\": \"play_tts\",\n" +
+                "                \"reply_sub_module\": \"dialogtree\",\n" +
+                "                \"action_after_execution\": \"no_listen\"\n" +
+                "            }\n" +
+                "        },\n" +
+                "        {\n" +
+                "            \"map\": {\n" +
+                "                \"msg_content\": {\n" +
+                "                    \"content\": \"睡觉前妈妈都会给我唱儿歌，这样我就能睡的特别快，你妈妈会给你唱儿歌吗？\"\n" +
+                "                },\n" +
+                "                \"confidence\": \"0.792\",\n" +
+                "                \"msg_type\": \"play_tts\",\n" +
+                "                \"reply_sub_module\": \"dialogtree\"\n" +
                 "            }\n" +
                 "        }\n" +
                 "    ]\n" +

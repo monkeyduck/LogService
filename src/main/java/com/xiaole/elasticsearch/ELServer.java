@@ -1,7 +1,8 @@
 package com.xiaole.elasticsearch;
 
 import com.xiaole.mvc.model.NormalLog;
-import com.xiaole.mvc.model.checker.SimpleLogChecker;
+import com.xiaole.mvc.model.checker.simpleChecker.CheckSimpleInterface;
+import com.xiaole.mvc.model.checker.simpleChecker.SimpleCheckerFactory;
 import net.sf.json.JSONArray;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexResponse;
@@ -84,13 +85,14 @@ public class ELServer {
         logger.info("Response: " + response.toString());
     }
 
-    public List<String> getComplexLogByDate(String memberId, String date, String module, String level, String env) {
+    public List<String> getComplexLogByDate(String memberId, String date, String module, String level, String env,
+                                            String src) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         if (!memberId.equals("all")) {
             fields.put("memberId", memberId);
         }
-        if (!module.equals("all")) {
+        if (!module.equals("all") && src.equals("xiaole")) {
             fields.put("module", module);
         }
         if (!level.equals("all")) {
@@ -98,6 +100,9 @@ public class ELServer {
         }
         if (!env.equals("all")) {
             fields.put("environment", env);
+        }
+        if (src.equals("beiwa")) {
+            fields.put("module", "cockroach");
         }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
@@ -251,7 +256,7 @@ public class ELServer {
         }
     }
 
-    public JSONArray getChatLogByNumber(int count, String date, String memberId, String level) {
+    public JSONArray getChatLogByNumber(int count, String date, String memberId, String level, String env) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
         BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
@@ -264,6 +269,9 @@ public class ELServer {
         }
         if (!level.equals("all")) {
             fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
         }
         for (Map.Entry<String, String> entry : fields.entrySet()){
             boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
@@ -285,7 +293,8 @@ public class ELServer {
         }
     }
 
-    public JSONArray getChatLogByTimeStamp(long startTimeStamp, long endTimeStamp, String memberId, String level) {
+    public JSONArray getChatLogByTimeStamp(long startTimeStamp, long endTimeStamp, String memberId, String level,
+                                           String env) {
         DateTime sdt = new DateTime(startTimeStamp);
         DateTime edt = new DateTime(endTimeStamp);
         String date = sdt.toString("yyyy-MM-dd");
@@ -308,6 +317,9 @@ public class ELServer {
             if (!level.equals("all")) {
                 fields.put("level", level);
             }
+            if (!env.equals("all")) {
+                fields.put("environment", env);
+            }
             for (Map.Entry<String, String> entry : fields.entrySet()){
                 boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
             }
@@ -326,78 +338,84 @@ public class ELServer {
         }
     }
 
-    public JSONArray getRealTimeLogByDateFromELSearch(String date, String memberId, String module, String level, String env) {
+//    public JSONArray getRealTimeLogByDateFromELSearch(String date, String memberId, String module, String level,
+//                                                      String env, String src) {
+//        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+//        Map<String, String> fields = new HashMap<>();
+//        fields.put("memberId", memberId);
+////        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+////        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+////        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+////        boolQuery.must(clauseQuery);
+////        fields.put("module", "cockroach");
+//        if (!level.equals("all")) {
+//            fields.put("level", level);
+//        }
+//        if (!env.equals("all")) {
+//            fields.put("environment", env);
+//        }
+//        if (!module.equals("all")) {
+//            fields.put("module", module);
+//        }
+//        for (Map.Entry<String, String> entry : fields.entrySet()){
+//            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+//        }
+//        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+//                .order(SortOrder.ASC);
+//        List<String> ret = new ArrayList<>();
+//        NormalLog log;
+//        // 根据日志源是小乐还是贝瓦生成相应的简单日志检查器
+//        CheckSimpleInterface simpleChecker = SimpleCheckerFactory.genSimpleChecker(src);
+//        try {
+//            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+//                    .setTypes("stat")
+//                    .addSort(sortBuilder)
+//                    .setScroll(new TimeValue(60000))
+//                    .setQuery(boolQuery)
+//                    .setSize(1000)
+//                    .get();
+//
+//            //Scroll until no hits are returned
+//            do {
+//                String sourceAsString = "";
+//                for (SearchHit hit : scrollResp.getHits().getHits()) {
+//                    //Handle the hit...
+//                    sourceAsString = hit.getSourceAsString();
+//                    if (sourceAsString != null) {
+//                        if (simpleChecker.checkSimple(sourceAsString)) {
+//                            try{
+//                                log = new NormalLog(sourceAsString);
+//                            }catch (Exception e) {
+//                                logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
+//                                continue;
+//                            }
+//                            ret.add(log.toNewSimpleFormat());
+//                        }
+//
+//                    }
+//                }
+//                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+//            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
+//        } catch (Exception e) {
+//            logger.error(e.getMessage() + ". No index exists: " + "el-" + date);
+//            List<String> list = new ArrayList<>();
+//            list.add("查询数据不存在");
+//            return JSONArray.fromObject(list);
+//        }
+//        return JSONArray.fromObject(ret);
+//    }
+
+    public List<String> getSimpleLogByDate(String date, String memberId, String env, String level, String src){
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
-        fields.put("memberId", memberId);
-//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
-//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
-//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
-//        boolQuery.must(clauseQuery);
-//        fields.put("module", "cockroach");
-        if (!level.equals("all")) {
-            fields.put("level", level);
+        if (src.equals("beiwa")) {
+            BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+            clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+            clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+            boolQuery.must(clauseQuery);
+            fields.put("module", "cockroach");
         }
-        if (!env.equals("all")) {
-            fields.put("environment", env);
-        }
-        if (!module.equals("all")) {
-            fields.put("module", module);
-        }
-        for (Map.Entry<String, String> entry : fields.entrySet()){
-            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
-        }
-        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
-                .order(SortOrder.ASC);
-        List<String> ret = new ArrayList<>();
-        NormalLog log;
-        try {
-            SearchResponse scrollResp = client.prepareSearch("el-" + date)
-                    .setTypes("stat")
-                    .addSort(sortBuilder)
-                    .setScroll(new TimeValue(60000))
-                    .setQuery(boolQuery)
-                    .setSize(1000)
-                    .get();
 
-            //Scroll until no hits are returned
-            do {
-                String sourceAsString = "";
-                for (SearchHit hit : scrollResp.getHits().getHits()) {
-                    //Handle the hit...
-                    sourceAsString = hit.getSourceAsString();
-                    if (sourceAsString != null) {
-                        if (SimpleLogChecker.check(sourceAsString)) {
-                            try{
-                                log = new NormalLog(sourceAsString);
-                            }catch (Exception e) {
-                                logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
-                                continue;
-                            }
-                            ret.add(log.toNewSimpleFormat());
-                        }
-
-                    }
-                }
-                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
-            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
-        } catch (Exception e) {
-            logger.error(e.getMessage() + ". No index exists: " + "el-" + date);
-            List<String> list = new ArrayList<>();
-            list.add("查询数据不存在");
-            return JSONArray.fromObject(list);
-        }
-        return JSONArray.fromObject(ret);
-    }
-
-    public List<String> getSimpleLogByDate(String date, String memberId, String env, String level){
-        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
-        Map<String, String> fields = new HashMap<>();
-//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
-//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
-//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
-//        boolQuery.must(clauseQuery);
-//        fields.put("module", "cockroach");
         fields.put("memberId", memberId);
         if (!level.equals("all")) {
             fields.put("level", level);
@@ -412,6 +430,8 @@ public class ELServer {
                 .order(SortOrder.ASC);
         NormalLog log;
         List<String> resultList = new ArrayList<>();
+        // 根据日志源是小乐还是贝瓦生成相应的简单日志检查器
+        CheckSimpleInterface simpleChecker = SimpleCheckerFactory.genSimpleChecker(src);
         try {
             SearchResponse scrollResp = client.prepareSearch("el-" + date)
                     .setTypes("stat")
@@ -428,14 +448,14 @@ public class ELServer {
                     //Handle the hit...
                     sourceAsString = hit.getSourceAsString();
                     if (sourceAsString != null) {
-                        if (SimpleLogChecker.check(sourceAsString)) {
+                        if (simpleChecker.checkSimple(sourceAsString)) {
                             try{
                                 log = new NormalLog(sourceAsString);
                             }catch (Exception e) {
                                 logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
                                 continue;
                             }
-                            resultList.add(log.toNewSimpleFormat());
+                            resultList.addAll(log.toNewSimpleFormat());
                         }
                     }
                 }
@@ -448,14 +468,16 @@ public class ELServer {
         return resultList;
     }
 
-    public Map<String, List<String>> getAllUserSimpleLog(String date, String env, String level) {
+    public Map<String, List<String>> getAllUserSimpleLog(String date, String env, String level, String src) {
         BoolQueryBuilder boolQuery = new BoolQueryBuilder();
         Map<String, String> fields = new HashMap<>();
-//        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
-//        clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
-//        clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
-//        boolQuery.must(clauseQuery);
-//        fields.put("module", "cockroach");
+        if (src.equals("beiwa")) {
+            BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+            clauseQuery.should(QueryBuilders.matchQuery("from", "frontend"));
+            clauseQuery.should(QueryBuilders.matchQuery("to", "frontend"));
+            boolQuery.must(clauseQuery);
+            fields.put("module", "cockroach");
+        }
         if (!level.equals("all")) {
             fields.put("level", level);
         }
@@ -469,6 +491,8 @@ public class ELServer {
                 .order(SortOrder.ASC);
         NormalLog log;
         Map<String, List<String>> resultMap = new HashMap<>();
+        // 根据日志源是小乐还是贝瓦生成相应的简单日志检查器
+        CheckSimpleInterface simpleChecker = SimpleCheckerFactory.genSimpleChecker(src);
         try {
             SearchResponse scrollResp = client.prepareSearch("el-" + date)
                     .setTypes("stat")
@@ -485,7 +509,7 @@ public class ELServer {
                     //Handle the hit...
                     sourceAsString = hit.getSourceAsString();
                     if (sourceAsString != null) {
-                        if (SimpleLogChecker.check(sourceAsString)) {
+                        if (simpleChecker.checkSimple(sourceAsString)) {
                             try{
                                 log = new NormalLog(sourceAsString);
                             }catch (Exception e) {
@@ -495,10 +519,11 @@ public class ELServer {
                             if (!resultMap.containsKey(log.getMember_id())) {
                                 resultMap.put(log.getMember_id(), new ArrayList<>());
                             }
-                            resultMap.get(log.getMember_id()).add(log.toNewSimpleFormat());
+                            resultMap.get(log.getMember_id()).addAll(log.toNewSimpleFormat());
                         }
                     }
                 }
+
                 scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
             } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
         } catch (Exception e) {

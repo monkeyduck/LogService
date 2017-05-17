@@ -109,14 +109,21 @@ public class Controller {
     @RequestMapping("/search/realtime")
     public JSONArray getRealTimeLogByDate(@RequestParam("date") String date,
                                @RequestParam(value = "memberId") String memberId,
-                               @RequestParam(value = "module", defaultValue = "all") String module,
                                @RequestParam(value = "level", defaultValue = "all") String level,
-                               @RequestParam(value = "env", defaultValue = "all") String env) {
+                               @RequestParam(value = "env", defaultValue = "all") String env,
+                               @RequestParam(value = "source", defaultValue = "xiaole") String src) {
         memberId = Utils.decodeUrl(memberId);
         if (memberId.equals("")) {
             return null;
         }
-        return elServer.getRealTimeLogByDateFromELSearch(date, memberId, module, level, env);
+        List<String> retList = elServer.getSimpleLogByDate(date, memberId, env, level, src);
+        List<String> replaceList = new ArrayList<>();
+        retList.forEach(l -> replaceList.add(l.replace("\t", " ")));
+        if (retList != null) {
+            return JSONArray.fromObject(replaceList);
+        } else {
+            return null;
+        }
     }
 
     @RequestMapping("/search/date")
@@ -135,14 +142,15 @@ public class Controller {
     @RequestMapping("/search/latestChatLog")
     public JSONArray getLatestChatLog(@RequestParam("count") int count,
                                       @RequestParam(value = "memberId", defaultValue = "all") String memberId,
-                                      @RequestParam(value = "level", defaultValue = "all") String level) {
+                                      @RequestParam(value = "level", defaultValue = "all") String level,
+                                      @RequestParam(value = "env", defaultValue = "all") String env) {
         memberId = Utils.decodeUrl(memberId);
         if (memberId.equals("")) {
             return null;
         }
         DateTime dt = new DateTime();
         String date = dt.toString("yyyy-MM-dd");
-        JSONArray jsonArray = elServer.getChatLogByNumber(count, date, memberId, level);
+        JSONArray jsonArray = elServer.getChatLogByNumber(count, date, memberId, level, env);
         return jsonArray;
     }
 
@@ -150,12 +158,13 @@ public class Controller {
     public JSONArray getRecentChatLog(@RequestParam("startTimeStamp") long startTimeStamp,
                                       @RequestParam("endTimeStamp") long endTimeStamp,
                                       @RequestParam(value = "memberId", defaultValue = "all") String memberId,
-                                      @RequestParam(value = "level", defaultValue = "all") String level) {
+                                      @RequestParam(value = "level", defaultValue = "all") String level,
+                                      @RequestParam(value = "env", defaultValue = "all") String env) {
         memberId = Utils.decodeUrl(memberId);
         if (memberId.equals("")) {
             return null;
         }
-        JSONArray jsonArray = elServer.getChatLogByTimeStamp(startTimeStamp, endTimeStamp, memberId, level);
+        JSONArray jsonArray = elServer.getChatLogByTimeStamp(startTimeStamp, endTimeStamp, memberId, level, env);
         return jsonArray;
     }
 
@@ -165,7 +174,8 @@ public class Controller {
                                   @RequestParam(value = "memberId", defaultValue = "all") String memberId,
                                   @RequestParam(value = "module", defaultValue = "all") String module,
                                   @RequestParam(value = "level", defaultValue = "all") String level,
-                                  @RequestParam(value = "env", defaultValue = "all") String env){
+                                  @RequestParam(value = "env", defaultValue = "all") String env,
+                                  @RequestParam(value = "source", defaultValue = "xiaole") String src){
         logger.info("Start to download log of date: " + date);
         memberId = Utils.decodeUrl(memberId);
         if (memberId.equals("")) {
@@ -176,20 +186,20 @@ public class Controller {
             if (memberId.contains(".")) {
                 shortId = memberId.split("\\.")[1];
             }
-            String saveName = date + "_" + module + "_" + shortId + "_" + level + ".txt";
+            String saveName = src + "_" + date + "_" + module + "_" + shortId + "_" + level + ".txt";
 
             DateTime today = new DateTime();
             DateTime searchDay = new DateTime(date);
             List<String> logList;
             // 十五天以内的日志从elasticsearch中获取下载
             if (today.getDayOfYear() - searchDay.getDayOfYear() < 15) {
-                logList = elServer.getComplexLogByDate(memberId, date, module, level, env);
+                logList = elServer.getComplexLogByDate(memberId, date, module, level, env, src);
                 DownloadFileUtil.downloadLogByList(logList, saveName, response);
             } else { //十五天以上的从hdfs中下载
                 if (memberId.equals("all") && module.equals("all") && env.equals("all") && level.equals("all")) {
                     hdfsManager.downloadLog(date, saveName, response);
                 } else {
-                    logList = hdfsManager.getLogByDate(date, module, memberId, env, level);
+                    logList = hdfsManager.getLogByDate(date, module, memberId, env, level, src);
                     DownloadFileUtil.downloadLogByList(logList, saveName, response);
                 }
             }
@@ -205,7 +215,8 @@ public class Controller {
                                         @RequestParam(value = "memberId", defaultValue = "all") String memberId,
                                         @RequestParam(value = "module", defaultValue = "all") String module,
                                         @RequestParam(value = "env", defaultValue = "all") String env,
-                                        @RequestParam(value = "level", defaultValue = "all") String level){
+                                        @RequestParam(value = "level", defaultValue = "all") String level,
+                                        @RequestParam(value = "source", defaultValue = "xiaole") String src){
         logger.info("Start to download simple log of date: " + date);
         memberId = Utils.decodeUrl(memberId);
         if (memberId.equals("")) {
@@ -219,24 +230,24 @@ public class Controller {
             if (memberId.contains(".")) {
                 shortId = memberId.split("\\.")[1];
             }
-            String saveName = "simple_" + date + "_" + module + "_" + shortId + "_" + level + ".txt";
+            String saveName = src + "_simple_" + date + "_" + module + "_" + shortId + "_" + level + ".txt";
             // 十五天以内的日志从elasticsearch中获取下载
             if (today.getDayOfYear() - searchDay.getDayOfYear() < 15) {
                 if (memberId.equals("all")) {
                     logger.info("Download all members logs");
-                    Map<String, List<String>> logMap = elServer.getAllUserSimpleLog(date, env, level);
+                    Map<String, List<String>> logMap = elServer.getAllUserSimpleLog(date, env, level, src);
                     DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
                 } else {
                     logger.info("Download logs of member: " + memberId);
-                    List<String> logList = elServer.getSimpleLogByDate(date, memberId, env, level);
+                    List<String> logList = elServer.getSimpleLogByDate(date, memberId, env, level, src);
                     DownloadFileUtil.downloadLogByList(logList, saveName, response);
                 }
             } else { // 十五天及以上的从hdfs中获取下载
                 if (memberId.equals("all")) {
-                    Map<String, List<String>> logMap = hdfsManager.getAllUserSimpleLog(date, module, env, level);
+                    Map<String, List<String>> logMap = hdfsManager.getAllUserSimpleLog(date, module, env, level, src);
                     DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
                 } else {
-                    List<String> logList = hdfsManager.getSimpleLogByDate(date, module, memberId, env, level);
+                    List<String> logList = hdfsManager.getSimpleLogByDate(date, module, memberId, env, level, src);
                     DownloadFileUtil.downloadLogByList(logList, saveName, response);
                 }
             }
