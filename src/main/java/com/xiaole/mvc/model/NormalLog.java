@@ -306,91 +306,13 @@ public class NormalLog {
     }
 
     public static void main(String[] args) {
-        String str = "{\n" +
-                "    \"packageMeta\": {\n" +
-                "        \"extraMap\": {\n" +
-                "            \"secretKey\": \"0wQaZgvsv/P5DtVZxKUBunavEBC5oezxehqCr66MYwM=\",\n" +
-                "            \"reply_id\": \"79553744\",\n" +
-                "            \"signature\": \"AD:D6:53:36:81:2B:3C:DC:29:22:AF:BE:9C:47:E4:74:EC:22:14:A7\",\n" +
-                "            \"sub_module_name\": \"protoss\",\n" +
-                "            \"confidence\": \"0\",\n" +
-                "            \"packageName\": \"com.aibasis.sdkdemo\"\n" +
-                "        },\n" +
-                "        \"clientType\": \"robot\",\n" +
-                "        \"clientId\": \"GID_XIAOLE_A@@@9c:99:a0:2c:9b:bb\",\n" +
-                "        \"deviceId\": \"9c:99:a0:2c:9b:bb\",\n" +
-                "        \"protocolVersion\": \"v1.0\",\n" +
-                "        \"packageUUID\": \"c8cd7107-8ac5-481b-a9d2-221ee7474def\",\n" +
-                "        \"priority\": 1,\n" +
-                "        \"createdTimestamp\": 1490336825220,\n" +
-                "        \"packageType\": \"common\",\n" +
-                "        \"userId\": \"qgzWvwbZQxq2dUrLdytqEw==\"\n" +
-                "    },\n" +
-                "    \"from\": {\n" +
-                "        \"name\": \"dialog_ctr\"\n" +
-                "    },\n" +
-                "    \"to\": {\n" +
-                "        \"name\": \"frontend\"\n" +
-                "    },\n" +
-                "    \"packageContentList\": [\n" +
-                "        {\n" +
-                "            \"map\": {\n" +
-                "                \"msg_content\": {\n" +
-                "                    \"type\": \"clear\"\n" +
-                "                },\n" +
-                "                \"confidence\": \"0.792\",\n" +
-                "                \"msg_type\": \"play_img\",\n" +
-                "                \"reply_sub_module\": \"dialogtree\",\n" +
-                "                \"action_after_execution\": \"no_listen\"\n" +
-                "            }\n" +
-                "        },\n" +
-                "        {\n" +
-                "            \"map\": {\n" +
-                "                \"msg_content\": {\n" +
-                "                    \"content\": \"听说睡觉会长高呢，我可要好好睡觉呢。\",\n" +
-                "                    \"face\": \"grimace\"\n" +
-                "                },\n" +
-                "                \"confidence\": \"0.792\",\n" +
-                "                \"msg_type\": \"play_tts\",\n" +
-                "                \"reply_sub_module\": \"dialogtree\",\n" +
-                "                \"action_after_execution\": \"no_listen\"\n" +
-                "            }\n" +
-                "        },\n" +
-                "        {\n" +
-                "            \"map\": {\n" +
-                "                \"msg_content\": {\n" +
-                "                    \"content\": \"小朋友\"\n" +
-                "                },\n" +
-                "                \"confidence\": \"0.792\",\n" +
-                "                \"msg_type\": \"play_tts\",\n" +
-                "                \"reply_sub_module\": \"dialogtree\",\n" +
-                "                \"action_after_execution\": \"no_listen\"\n" +
-                "            }\n" +
-                "        },\n" +
-                "        {\n" +
-                "            \"map\": {\n" +
-                "                \"msg_content\": {\n" +
-                "                    \"content\": \"睡觉前妈妈都会给我唱儿歌，这样我就能睡的特别快，你妈妈会给你唱儿歌吗？\"\n" +
-                "                },\n" +
-                "                \"confidence\": \"0.792\",\n" +
-                "                \"msg_type\": \"play_tts\",\n" +
-                "                \"reply_sub_module\": \"dialogtree\"\n" +
-                "            }\n" +
-                "        }\n" +
-                "    ]\n" +
-                "}";
-        JSONObject json = JSONObject.fromObject(str);
-        JSONObject contentMap = json.getJSONArray("packageContentList").getJSONObject(0);
-        System.out.println(contentMap.getJSONObject("map").getJSONObject("msg_content").getJSONArray("ch_rec_list").getJSONObject(0).getString("content"));
-        String url = "all";
-        String newUrl = "";
+        String log = "{\"timeStamp\":1495193042513,\"environment\":\"alpha\",\"level\":\"INFO\",\"module\":\"cockroach\",\"ip\":\"127.0.0.1\",\"from\":\"instant_chat\",\"to\":\"frontend\",\"deviceId\":\"18:97:ff:04:66:b7\",\"content\":\"{\\\"packageMeta\\\":{\\\"extraMap\\\":{},\\\"clientType\\\":\\\"robot\\\",\\\"clientId\\\":\\\"GID_TOPIC_XIAOLE_UP_A@@@1698896608\\\",\\\"deviceId\\\":\\\"18:97:ff:04:66:b7\\\",\\\"protocolVersion\\\":\\\"v1.0\\\",\\\"packageUUID\\\":\\\"28b1ad30-1243-429a-92ac-52cb89ea8768\\\",\\\"priority\\\":1,\\\"createdTimestamp\\\":1495193042466,\\\"packageType\\\":\\\"common\\\",\\\"userId\\\":\\\"1698896608\\\"},\\\"from\\\":{\\\"name\\\":\\\"instant_chat\\\"},\\\"to\\\":{\\\"name\\\":\\\"frontend\\\"},\\\"packageContentList\\\":[{\\\"map\\\":{\\\"message_time\\\":\\\"1495193042466\\\",\\\"command_type\\\":\\\"home_id_speech\\\",\\\"content\\\":\\\"我们住在快乐星球6 6 0 8号\\\",\\\"call_id\\\":\\\"1698896608\\\"}}]}\",\"memberId\":\"1698896608\",\"@version\":\"1\",\"@timestamp\":\"2017-05-19T19:24:02.513+08:00\",\"path\":\"/home/wangzhiwei/cockroach/stats_logs/2017-05-19.log\",\"host\":\"iZ2ze08boib6nvrf09g9g7Z\",\"type\":\"stats\",\"debug\":\"timestampMatched\",\"hdfs_filename\":\"2017-05-19\",\"redis_key\":\"2017-05-19.19:24\"}\n";
         try {
-            String encode = java.net.URLEncoder.encode(url, "UTF-8");
-            System.out.println("encode: " + encode);
-            newUrl = java.net.URLDecoder.decode(encode, "UTF-8");
+            NormalLog normalLog = new NormalLog(log);
+            System.out.println(normalLog.toNewSimpleFormat());
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error(e.getMessage());
         }
-        System.out.println(newUrl);
     }
+
 }

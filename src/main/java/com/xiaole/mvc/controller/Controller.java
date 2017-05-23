@@ -256,5 +256,108 @@ public class Controller {
         }
     }
 
+    @RequestMapping("/download/instant")
+    public void downloadInstantChatLogByDate(HttpServletResponse response,
+                                                   @RequestParam("date") String date,
+                                                   @RequestParam(value = "memberId", defaultValue = "all") String memberId,
+                                                   @RequestParam(value = "module", defaultValue = "all") String module,
+                                                   @RequestParam(value = "env", defaultValue = "all") String env,
+                                                   @RequestParam(value = "level", defaultValue = "all") String level,
+                                                   @RequestParam(value = "source", defaultValue = "beiwa") String src){
+        logger.info("Start to download complex instant-chat log of " + date);
+        memberId = Utils.decodeUrl(memberId);
+        if (memberId.equals("")) {
+            return ;
+        }
+        if (!src.equals("beiwa")) {
+            return ;
+        }
+        try{
+            DateTime today = new DateTime();
+            DateTime searchDay = new DateTime(date);
+
+            String shortId = memberId;
+            if (memberId.contains(".")) {
+                shortId = memberId.split("\\.")[1];
+            }
+            String saveName = src + "_complexInstant_" + date + "_" + module + "_" + shortId + "_" + level + ".txt";
+            // 十五天以内的日志从elasticsearch中获取下载
+            if (today.getDayOfYear() - searchDay.getDayOfYear() < 15) {
+                if (memberId.equals("all")) {
+                    Map<String, List<String>> logMap = elServer.getAllUserInstantLog(date, env, level, src);
+                    DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
+                } else {
+                    logger.info("Download logs of member: " + memberId);
+                    List<String> logList = elServer.getInstantLogByDate(date, memberId, env, level, src);
+                    DownloadFileUtil.downloadLogByList(logList, saveName, response);
+                }
+            }
+//            else { // 十五天及以上的从hdfs中获取下载
+//                if (memberId.equals("all")) {
+//                    Map<String, List<String>> logMap = hdfsManager.getAllUserInstantSimpleLog(date, module, env, level, src);
+//                    DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
+//                } else {
+//                    List<String> logList = hdfsManager.getInstantSimpleLogByDate(date, module, memberId, env, level, src);
+//                    DownloadFileUtil.downloadLogByList(logList, saveName, response);
+//                }
+//            }
+        } catch (IOException e){
+            logger.error("error when downloading log: " + date + "! Caused by: " + e.getMessage());
+        }
+
+    }
+
+
+    @RequestMapping("/download-simple/instant")
+    public void downloadInstantChatSimpleLogByDate(HttpServletResponse response,
+                                        @RequestParam("date") String date,
+                                        @RequestParam(value = "memberId", defaultValue = "all") String memberId,
+                                        @RequestParam(value = "module", defaultValue = "all") String module,
+                                        @RequestParam(value = "env", defaultValue = "all") String env,
+                                        @RequestParam(value = "level", defaultValue = "all") String level,
+                                        @RequestParam(value = "source", defaultValue = "beiwa") String src){
+        logger.info("Start to download simple instant-chat log of " + date);
+        memberId = Utils.decodeUrl(memberId);
+        if (memberId.equals("")) {
+            return ;
+        }
+        if (!src.equals("beiwa")) {
+            return ;
+        }
+        try{
+            DateTime today = new DateTime();
+            DateTime searchDay = new DateTime(date);
+
+            String shortId = memberId;
+            if (memberId.contains(".")) {
+                shortId = memberId.split("\\.")[1];
+            }
+            String saveName = src + "_simpleInstant_" + date + "_" + module + "_" + shortId + "_" + level + ".txt";
+            // 十五天以内的日志从elasticsearch中获取下载
+            if (today.getDayOfYear() - searchDay.getDayOfYear() < 15) {
+                if (memberId.equals("all")) {
+                    Map<String, List<String>> logMap = elServer.getAllUserInstantSimpleLog(date, env, level, src);
+                    DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
+                } else {
+                    logger.info("Download logs of member: " + memberId);
+                    List<String> logList = elServer.getSimpleInstantLogByDate(date, memberId, env, level, src);
+                    DownloadFileUtil.downloadLogByList(logList, saveName, response);
+                }
+            }
+//            else { // 十五天及以上的从hdfs中获取下载
+//                if (memberId.equals("all")) {
+//                    Map<String, List<String>> logMap = hdfsManager.getAllUserInstantSimpleLog(date, module, env, level, src);
+//                    DownloadFileUtil.downloadLogByMap(logMap, saveName, response);
+//                } else {
+//                    List<String> logList = hdfsManager.getInstantSimpleLogByDate(date, module, memberId, env, level, src);
+//                    DownloadFileUtil.downloadLogByList(logList, saveName, response);
+//                }
+//            }
+        } catch (IOException e){
+            logger.error("error when downloading log: " + date + "! Caused by: " + e.getMessage());
+        }
+
+    }
+
 
 }

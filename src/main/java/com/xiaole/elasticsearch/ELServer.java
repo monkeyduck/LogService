@@ -533,6 +533,160 @@ public class ELServer {
         return resultMap;
     }
 
+    public Map<String, List<String>> getAllUserInstantLog(String date, String env, String level, String src) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+
+        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+        clauseQuery.should(QueryBuilders.matchQuery("from", "instant_chat"));
+        clauseQuery.should(QueryBuilders.matchQuery("to", "instant_chat"));
+        boolQuery.must(clauseQuery);
+        fields.put("module", "cockroach");
+
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        FieldSortBuilder sortBuilder = SortBuilders.fieldSort("timeStamp")
+                .order(SortOrder.ASC);
+        NormalLog log;
+        Map<String, List<String>> resultMap = new HashMap<>();
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .addSort(sortBuilder)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        try{
+                            log = new NormalLog(sourceAsString);
+                        }catch (Exception e) {
+                            logger.error("Parse log error when handling hits: " + e.getMessage() + "log: " + sourceAsString);
+                            continue;
+                        }
+                        if (!resultMap.containsKey(log.getMember_id())) {
+                            resultMap.put(log.getMember_id(), new ArrayList<>());
+                        }
+                        resultMap.get(log.getMember_id()).add(sourceAsString);
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0); // Zero hits mark the end of the scroll and the while loop.
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+            return null;
+        }
+        return resultMap;
+    }
+
+
+    public Map<String, List<String>> getAllUserInstantSimpleLog(String date, String env, String level, String src) {
+        Map<String, List<String>> complexLogMap = getAllUserInstantLog(date, env, level, src);
+        Map<String, List<String>> simpleLogMap = new HashMap<>();
+        CheckSimpleInterface simpleChecker = SimpleCheckerFactory.genSimpleChecker(src);
+        NormalLog log;
+        for (String member_id: complexLogMap.keySet()) {
+            List<String> list = complexLogMap.get(member_id);
+            for (String comLog: list) {
+                if (simpleChecker.checkSimple(comLog)) {
+                    try{
+                        log = new NormalLog(comLog);
+                    }catch (Exception e) {
+                        logger.error("Parse log error when downloading instant chat log: " + e.getMessage() + ", log: " + comLog);
+                        continue;
+                    }
+                    if (!simpleLogMap.containsKey(log.getMember_id())) {
+                        simpleLogMap.put(log.getMember_id(), new ArrayList<>());
+                    }
+                    simpleLogMap.get(log.getMember_id()).addAll(log.toNewSimpleFormat());
+                }
+            }
+        }
+        return simpleLogMap;
+    }
+
+    public List<String> getInstantLogByDate(String date, String memberId, String env, String level, String src) {
+        BoolQueryBuilder boolQuery = new BoolQueryBuilder();
+        Map<String, String> fields = new HashMap<>();
+
+        BoolQueryBuilder clauseQuery = new BoolQueryBuilder();
+        clauseQuery.should(QueryBuilders.matchQuery("from", "instant_chat"));
+        clauseQuery.should(QueryBuilders.matchQuery("to", "instant_chat"));
+        boolQuery.must(clauseQuery);
+        fields.put("module", "cockroach");
+
+        fields.put("memberId", memberId);
+        if (!level.equals("all")) {
+            fields.put("level", level);
+        }
+        if (!env.equals("all")) {
+            fields.put("environment", env);
+        }
+
+        for (Map.Entry<String, String> entry : fields.entrySet()){
+            boolQuery.must(QueryBuilders.matchQuery(entry.getKey(), entry.getValue()));
+        }
+        List<String> logList = new ArrayList<>();
+        try {
+            SearchResponse scrollResp = client.prepareSearch("el-" + date)
+                    .setTypes("stat")
+                    .setQuery(boolQuery)
+                    .setScroll(new TimeValue(60000))
+                    .setQuery(boolQuery)
+                    .setSize(1000)
+                    .get();
+
+            //Scroll until no hits are returned
+            do {
+                String sourceAsString = "";
+                for (SearchHit hit : scrollResp.getHits().getHits()) {
+                    //Handle the hit...
+                    sourceAsString = hit.getSourceAsString();
+                    if (sourceAsString != null) {
+                        logList.add(sourceAsString);
+                    }
+                }
+                scrollResp = client.prepareSearchScroll(scrollResp.getScrollId()).setScroll(new TimeValue(60000)).execute().actionGet();
+            } while(scrollResp.getHits().getHits().length != 0);
+
+        } catch (Exception e) {
+            logger.error(e.getMessage() + "index: " + "el-" + date);
+        }
+        return logList;
+    }
+
+    public List<String> getSimpleInstantLogByDate(String date, String memberId, String env, String level, String src) {
+        List<String> complexLogList = getInstantLogByDate(date, memberId, env, level, src);
+        List<String> simpleLogList = new ArrayList<>();
+        CheckSimpleInterface simpleChecker = SimpleCheckerFactory.genSimpleChecker(src);
+        NormalLog log;
+        for (String comLog: complexLogList) {
+            if (simpleChecker.checkSimple(comLog)) {
+                try{
+                    log = new NormalLog(comLog);
+                }catch (Exception e) {
+                    logger.error("Parse log error when downloading simple instant chat log: " + e.getMessage() + ", log: " + comLog);
+                    continue;
+                }
+                simpleLogList.addAll(log.toNewSimpleFormat());
+            }
+        }
+        return simpleLogList;
+    }
 
     private JSONArray convert2JsonArray(SearchResponse response) {
         logger.info("Start to convert response to json ...");
